@@ -31,6 +31,18 @@ cf auth login
 cf deploy --prebuilt --mode production
 ```
 
-首次部署需确保当前 Cloudflare 账户可以管理 `gongshuiwen.com`。
-更新仓库后重新部署才能更新站点文件。若连接 Workers Builds：
-构建命令为 `npm run build`，部署命令为 `cf deploy --prebuilt --mode production`。
+## 自动发布
+
+Cloudflare Workers Builds 连接本仓库，`main` 分支更新后自动构建并发布到
+<https://pub.gongshuiwen.com>。其他分支不触发生产发布。
+
+- Worker：`gongshuiwen-public`
+- 生产分支：`main`
+- 项目根目录：`/`
+- Node.js：`24.14.1`
+- 构建命令：`npm run build`
+- 部署命令：`npx cf deploy --prebuilt --mode production`
+
+构建凭据保存在 Cloudflare，仓库不保存密钥。
+可在 Cloudflare 控制台中进入该 Worker 的 Builds 页面查看构建和部署日志。
+上面的命令仍可用于本地手动部署。
