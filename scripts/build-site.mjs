@@ -51,7 +51,7 @@ for (const path of [...new Set(files)]) {
   const preview = metadata.size <= MAX_PREVIEW_BYTES
     ? getTextPreview(path, await readFile(source))
     : null;
-  const previewHref = preview ? "/preview" + href + ".html" : null;
+  const previewHref = preview ? "/preview" + href + "/" : null;
 
   if (preview) {
     const tokens = {
@@ -64,7 +64,7 @@ for (const path of [...new Set(files)]) {
       LINES: renderPreviewLines(preview.lines),
     };
     const page = previewTemplate.replace(/\{\{([A-Z_]+)\}\}/g, (_, token) => tokens[token]);
-    const previewTarget = join(assetsDirectory, "preview", path + ".html");
+    const previewTarget = join(assetsDirectory, "preview", path, "index.html");
     await mkdir(dirname(previewTarget), { recursive: true });
     await writeFile(previewTarget, page);
     previewCount++;
