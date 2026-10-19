@@ -12,24 +12,28 @@ use HTTP CONNECT through the same proxy endpoint.
 NO_PROXY uses comma-separated hosts and CIDR ranges instead of Windows
 wildcards. CIDR support varies between clients, and <local> has no portable
 NO_PROXY equivalent. Configure client-specific bypass rules when needed.
-With -Disable, turns off the manual proxy and removes these four environment
-variables from both User and Process scopes. Retains the saved manual proxy
-address and bypass list so they can be inspected or reused.
-Both modes leave PAC and automatic proxy detection settings unchanged.
+With -Disable, turns off manual proxy, PAC and automatic detection for the
+current user's LAN settings, clears the PAC URL and removes these four
+environment variables from both User and Process scopes. Retains the saved
+manual proxy address and bypass list so they can be inspected or reused.
+Enable mode leaves PAC and automatic detection settings unchanged; it does
+not restore automatic settings that were cleared by -Disable.
 Run in PowerShell 7 on Windows; administrator privileges are not required.
 Run with & ./Set-WindowsManualProxy.ps1 in an existing PowerShell session
 to update that session too. A separate pwsh -File process cannot update
 the environment of its parent terminal.
 Restart affected applications if they do not pick up the new settings.
 .PARAMETER Disable
-Turns off the manual proxy and clears HTTP_PROXY, HTTPS_PROXY, ALL_PROXY
-and NO_PROXY from the current user's persistent environment and this process.
+Turns off manual proxy, PAC and automatic detection, clears the PAC URL,
+and removes HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NO_PROXY from the current
+user's persistent environment and this process. VPN and WinHTTP settings
+are separate and are not modified.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1
 Enables the configured manual proxy and sets proxy environment variables.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1 -Disable
-Disables the manual proxy and clears proxy environment variables.
+Disables manual proxy, PAC and automatic detection, and clears proxy environment variables.
 #>
 
 [CmdletBinding()]
@@ -56,7 +60,104 @@ $proxyEnvironment = [ordered]@{
 }
 
 if ($Disable) {
-    New-ItemProperty -Path $proxyKey -Name ProxyEnable -PropertyType DWord -Value 0 -Force | Out-Null
+    # Use the supported WinINet API rather than editing connection binary data.
+    if (-not ('PublicRepo.LanProxySettings' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace PublicRepo
+{
+    public static class LanProxySettings
+    {
+        private const uint INTERNET_OPTION_PER_CONNECTION_OPTION = 75;
+        private const uint INTERNET_OPTION_SETTINGS_CHANGED = 39;
+        private const uint INTERNET_OPTION_REFRESH = 37;
+        private const uint INTERNET_PER_CONN_FLAGS = 1;
+        private const uint INTERNET_PER_CONN_AUTOCONFIG_URL = 4;
+        private const uint PROXY_TYPE_DIRECT = 1;
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct OptionValue
+        {
+            [FieldOffset(0)] public uint Flags;
+            [FieldOffset(0)] public IntPtr Text;
+            [FieldOffset(0)] public System.Runtime.InteropServices.ComTypes.FILETIME FileTime;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ConnectionOption
+        {
+            public uint Option;
+            public OptionValue Value;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ConnectionOptionList
+        {
+            public uint Size;
+            public IntPtr Connection;
+            public uint Count;
+            public uint Error;
+            public IntPtr Options;
+        }
+
+        [DllImport("wininet.dll", EntryPoint = "InternetSetOptionW", ExactSpelling = true, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool InternetSetOptionW(IntPtr handle, uint option, IntPtr buffer, uint size);
+
+        private static void SetOption(uint option, IntPtr buffer, uint size)
+        {
+            if (!InternetSetOptionW(IntPtr.Zero, option, buffer, size))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to update Windows proxy settings (option " + option + ").");
+        }
+
+        public static void Disable()
+        {
+            IntPtr options = IntPtr.Zero;
+            IntPtr listBuffer = IntPtr.Zero;
+            IntPtr emptyUrl = IntPtr.Zero;
+            try
+            {
+                int optionSize = Marshal.SizeOf(typeof(ConnectionOption));
+                options = Marshal.AllocHGlobal(checked(optionSize * 2));
+                emptyUrl = Marshal.StringToHGlobalUni(string.Empty);
+                // DIRECT only: no PROXY, AUTO_PROXY_URL or AUTO_DETECT flags.
+                var flags = new ConnectionOption {
+                    Option = INTERNET_PER_CONN_FLAGS,
+                    Value = new OptionValue { Flags = PROXY_TYPE_DIRECT }
+                };
+                var pac = new ConnectionOption {
+                    Option = INTERNET_PER_CONN_AUTOCONFIG_URL,
+                    Value = new OptionValue { Text = emptyUrl }
+                };
+                Marshal.StructureToPtr(flags, options, false);
+                Marshal.StructureToPtr(pac, IntPtr.Add(options, optionSize), false);
+                var list = new ConnectionOptionList {
+                    Size = (uint)Marshal.SizeOf(typeof(ConnectionOptionList)),
+                    Connection = IntPtr.Zero, // NULL selects LAN; VPN connections are separate.
+                    Count = 2,
+                    Options = options
+                };
+                listBuffer = Marshal.AllocHGlobal((int)list.Size);
+                Marshal.StructureToPtr(list, listBuffer, false);
+                SetOption(INTERNET_OPTION_PER_CONNECTION_OPTION, listBuffer, list.Size);
+                SetOption(INTERNET_OPTION_SETTINGS_CHANGED, IntPtr.Zero, 0);
+                SetOption(INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
+            }
+            finally
+            {
+                if (listBuffer != IntPtr.Zero) Marshal.FreeHGlobal(listBuffer);
+                if (options != IntPtr.Zero) Marshal.FreeHGlobal(options);
+                if (emptyUrl != IntPtr.Zero) Marshal.FreeHGlobal(emptyUrl);
+            }
+        }
+    }
+}
+'@
+    }
+    [PublicRepo.LanProxySettings]::Disable()
     # Mark the variables for removal in the loop below.
     foreach ($name in @($proxyEnvironment.Keys)) {
         $proxyEnvironment[$name] = $null
@@ -81,7 +182,7 @@ foreach ($entry in $proxyEnvironment.GetEnumerator()) {
 }
 
 Get-ItemProperty -Path $proxyKey |
-    Select-Object ProxyEnable, ProxyServer, ProxyOverride
+    Select-Object ProxyEnable, ProxyServer, ProxyOverride, AutoConfigURL
 
 [pscustomobject]$proxyEnvironment
 
