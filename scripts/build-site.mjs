@@ -61,7 +61,7 @@ for (const path of [...new Set(files)]) {
       SIZE: metadata.size.toLocaleString("en"),
       LINE_COUNT: preview.lines.length.toLocaleString("en"),
       DOWNLOAD_URL: escapeHtml(href),
-      LINES: renderPreviewLines(preview.lines),
+      LINES: await renderPreviewLines(preview.lines, preview.syntax),
     };
     const page = previewTemplate.replace(/\{\{([A-Z_]+)\}\}/g, (_, token) => tokens[token]);
     const previewTarget = join(assetsDirectory, "preview", path, "index.html");

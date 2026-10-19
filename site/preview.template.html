@@ -26,6 +26,8 @@
     .line-number { position: sticky; left: 0; padding-right: 18px; text-align: right; color: #7b8799; background: #fff; user-select: none; }
     .code-line:target .line-number { background: #fff2bf; }
     .line-content { padding-right: 20px; white-space: pre; }
+    .syntax-token { color: var(--shiki-light, inherit); font-style: var(--shiki-light-font-style, normal); font-weight: var(--shiki-light-font-weight, inherit); text-decoration: var(--shiki-light-text-decoration, none); }
+    @media (prefers-color-scheme: dark) { .syntax-token { color: var(--shiki-dark, inherit); font-style: var(--shiki-dark-font-style, normal); font-weight: var(--shiki-dark-font-weight, inherit); text-decoration: var(--shiki-dark-text-decoration, none); } }
     .is-wrapped .code-line { min-width: 0; }
     .is-wrapped .line-content { white-space: pre-wrap; overflow-wrap: anywhere; }
     .status { min-height: 1.5em; color: #64748b; font-size: 14px; }
