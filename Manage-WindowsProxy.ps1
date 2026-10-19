@@ -18,13 +18,13 @@ Turns off LAN proxy settings and removes proxy environment variables.
 HTTP proxy endpoint in host:port format, without a URL scheme or credentials.
 Defaults to 127.0.0.1:10808. Bracket IPv6 addresses, for example [::1]:10808.
 .EXAMPLE
-& ./Set-WindowsManualProxy.ps1
+& ./Manage-WindowsProxy.ps1
 Enables the default proxy and sets proxy environment variables.
 .EXAMPLE
-& ./Set-WindowsManualProxy.ps1 -ProxyAddress '192.168.1.10:7890'
+& ./Manage-WindowsProxy.ps1 -ProxyAddress '192.168.1.10:7890'
 Uses a custom endpoint for the manual proxy and proxy environment variables.
 .EXAMPLE
-& ./Set-WindowsManualProxy.ps1 -Disable
+& ./Manage-WindowsProxy.ps1 -Disable
 Turns off manual proxy, PAC and automatic detection, and removes proxy variables.
 .NOTES
 Requires Windows and PowerShell 7; administrator privileges are not required.
