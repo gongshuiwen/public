@@ -43,6 +43,9 @@ Cloudflare Workers Builds 连接本仓库，`main` 分支更新后自动构建�
 - 构建命令：`npm run build`
 - 部署命令：`npx cf deploy --prebuilt --mode production`
 
+首次关联时，需要在 GitHub 中为 `Cloudflare Workers and Pages` 应用授权本仓库。
+之后推送 `main` 即可发布，无需在本机执行部署命令。
+
 构建凭据保存在 Cloudflare，仓库不保存密钥。
 可在 Cloudflare 控制台中进入该 Worker 的 Builds 页面查看构建和部署日志。
 上面的命令仍可用于本地手动部署。
