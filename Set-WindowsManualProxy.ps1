@@ -28,9 +28,16 @@ Turns off manual proxy, PAC and automatic detection, clears the PAC URL,
 and removes HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NO_PROXY from the current
 user's persistent environment and this process. VPN and WinHTTP settings
 are separate and are not modified.
+.PARAMETER ProxyAddress
+HTTP proxy endpoint in host:port format, without a URL scheme or credentials.
+Defaults to 127.0.0.1:10808. IPv6 addresses must be bracketed, for example
+[::1]:10808. Used for both the manual proxy and proxy environment variables.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1
 Enables the configured manual proxy and sets proxy environment variables.
+.EXAMPLE
+& ./Set-WindowsManualProxy.ps1 -ProxyAddress '192.168.1.10:7890'
+Uses the custom endpoint for the manual proxy and proxy environment variables.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1 -Disable
 Disables manual proxy, PAC and automatic detection, and clears proxy environment variables.
@@ -38,7 +45,18 @@ Disables manual proxy, PAC and automatic detection, and clears proxy environment
 
 [CmdletBinding()]
 param(
-    [switch]$Disable
+    [switch]$Disable,
+
+    [ValidateScript({
+        $endpoint = $null
+        if ($_ -notmatch '^(?:[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.%]+\]):[0-9]{1,5}$' -or
+            -not [Uri]::TryCreate(('http://' + $_), [UriKind]::Absolute, [ref]$endpoint) -or
+            $endpoint.Port -lt 1 -or $endpoint.Port -gt 65535) {
+            throw 'ProxyAddress must be host:port (port 1-65535), e.g. 127.0.0.1:10808 or [::1]:10808. Do not include a URL scheme.'
+        }
+        $true
+    })]
+    [string]$ProxyAddress = '127.0.0.1:10808'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,7 +65,6 @@ if (-not $IsWindows) {
 }
 
 $proxyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
-$proxyAddress = '127.0.0.1:10808'
 
 $bypass = 'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;hzboiler.com;<local>'
 
