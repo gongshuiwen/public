@@ -1,0 +1,8 @@
+node_modules/
+.cloudflare/
+.wrangler/
+.generated/
+dist/
+index.html
+.env*
+.dev.vars*

@@ -1,0 +1,15 @@
+{
+  "name": "gongshuiwen-public",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build-site.mjs && cf dev",
+    "build": "node scripts/build-site.mjs && cf build",
+    "deploy": "npm run build && cf deploy --prebuilt --mode production"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "beta",
+    "cf": "1.0.0-beta.17",
+    "vite": "^8.3.0"
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="gongshuiwen 的公开脚本与文件。">
+  <title>公开文件 · gongshuiwen</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; color: #1e293b; background: #f6f7f9; }
+    body { margin: 0; }
+    main { max-width: 880px; margin: 12vh auto; padding: 0 24px; }
+    .eyebrow { color: #64748b; font-size: 14px; letter-spacing: .08em; }
+    h1 { font-size: clamp(32px, 6vw, 48px); letter-spacing: -.04em; margin: 14px 0; }
+    .intro { color: #64748b; line-height: 1.8; }
+    table { width: 100%; border-collapse: collapse; margin-top: 36px; background: #fff; }
+    th, td { text-align: left; padding: 20px; border-bottom: 1px solid #e2e8f0; }
+    th { color: #64748b; font-size: 13px; font-weight: 500; }
+    td { font-size: 15px; overflow-wrap: anywhere; }
+    td:nth-child(2) { color: #64748b; white-space: nowrap; }
+    a { color: #245bd0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .download { font-size: 14px; white-space: nowrap; }
+    footer { color: #64748b; font-size: 14px; margin-top: 28px; }
+    @media (max-width: 540px) { main { margin-top: 48px; padding: 0 16px; } th, td { padding: 16px 10px; } }
+    @media (prefers-color-scheme: dark) { :root { color: #e2e8f0; background: #10151e; } table { background: #171f2b; } th, td { border-color: #2b3545; } a { color: #8ab4ff; } .intro, footer, .eyebrow, th, td:nth-child(2) { color: #a3afc2; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">GONGSHUIWEN / PUBLIC</div>
+    <h1>公开文件</h1>
+    <p class="intro">脚本与工具文件，点击文件名访问，或直接下载到本地。</p>
+    <table>
+      <thead><tr><th scope="col">文件</th><th scope="col">大小</th><th scope="col">操作</th></tr></thead>
+      <tbody>{{FILES}}</tbody>
+    </table>
+    <footer>源代码与更新记录：<a href="https://github.com/gongshuiwen/public">GitHub 仓库</a></footer>
+  </main>
+</body>
+</html>
