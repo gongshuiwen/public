@@ -1,46 +1,40 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-Enables or disables the current Windows user's manual proxy and proxy environment variables.
+Manages the current Windows user's proxy settings and proxy environment variables.
 .DESCRIPTION
-Replaces the manual proxy bypass list with the configured entries.
-The <local> entry enables bypass for local intranet hostnames without dots.
-Persists HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NO_PROXY for the current user
-and updates the environment of the PowerShell process running this script.
-Both HTTP_PROXY and HTTPS_PROXY use an http:// proxy URL; HTTPS requests
-use HTTP CONNECT through the same proxy endpoint.
-NO_PROXY uses comma-separated hosts and CIDR ranges instead of Windows
-wildcards. CIDR support varies between clients, and <local> has no portable
-NO_PROXY equivalent. Configure client-specific bypass rules when needed.
-With -Disable, turns off manual proxy, PAC and automatic detection for the
-current user's LAN settings, clears the PAC URL and removes these four
-environment variables from both User and Process scopes. Retains the saved
-manual proxy address and bypass list so they can be inspected or reused.
-Enable mode leaves PAC and automatic detection settings unchanged; it does
-not restore automatic settings that were cleared by -Disable.
-Run in PowerShell 7 on Windows; administrator privileges are not required.
-Run with & ./Set-WindowsManualProxy.ps1 in an existing PowerShell session
-to update that session too. A separate pwsh -File process cannot update
-the environment of its parent terminal.
-Restart affected applications if they do not pick up the new settings.
+Enable mode sets a manual HTTP proxy and replaces its bypass list. It also
+sets HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NO_PROXY in User and Process scopes.
+
+Disable mode turns off manual proxy, PAC and automatic detection for LAN,
+clears the PAC URL, and removes the four proxy environment variables.
+The saved manual proxy address and bypass list are retained. Enable mode
+does not change or restore PAC and automatic detection settings.
+
+VPN and WinHTTP settings are separate and are not modified.
 .PARAMETER Disable
-Turns off manual proxy, PAC and automatic detection, clears the PAC URL,
-and removes HTTP_PROXY, HTTPS_PROXY, ALL_PROXY and NO_PROXY from the current
-user's persistent environment and this process. VPN and WinHTTP settings
-are separate and are not modified.
+Turns off LAN proxy settings and removes proxy environment variables.
 .PARAMETER ProxyAddress
 HTTP proxy endpoint in host:port format, without a URL scheme or credentials.
-Defaults to 127.0.0.1:10808. IPv6 addresses must be bracketed, for example
-[::1]:10808. Used for both the manual proxy and proxy environment variables.
+Defaults to 127.0.0.1:10808. Bracket IPv6 addresses, for example [::1]:10808.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1
-Enables the configured manual proxy and sets proxy environment variables.
+Enables the default proxy and sets proxy environment variables.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1 -ProxyAddress '192.168.1.10:7890'
-Uses the custom endpoint for the manual proxy and proxy environment variables.
+Uses a custom endpoint for the manual proxy and proxy environment variables.
 .EXAMPLE
 & ./Set-WindowsManualProxy.ps1 -Disable
-Disables manual proxy, PAC and automatic detection, and clears proxy environment variables.
+Turns off manual proxy, PAC and automatic detection, and removes proxy variables.
+.NOTES
+Requires Windows and PowerShell 7; administrator privileges are not required.
+Run from an existing PowerShell session to update that session's environment.
+A separate pwsh -File process cannot change its parent terminal's environment.
+Other running applications may need to be restarted.
+
+NO_PROXY uses comma-separated hosts and CIDR ranges, rather than Windows
+wildcards. CIDR support varies by client; <local> has no portable equivalent.
+Both HTTP_PROXY and HTTPS_PROXY use an http:// URL for the HTTP proxy endpoint.
 #>
 
 [CmdletBinding()]
@@ -60,26 +54,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
 if (-not $IsWindows) {
     throw 'This script requires Windows.'
 }
 
-$proxyKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+function Initialize-LanProxyApi {
+    if ('PublicRepo.LanProxySettings' -as [type]) {
+        return
+    }
 
-$bypass = 'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;hzboiler.com;<local>'
-
-$proxyUrl = 'http://' + $proxyAddress
-$proxyEnvironment = [ordered]@{
-    HTTP_PROXY  = $proxyUrl
-    HTTPS_PROXY = $proxyUrl
-    ALL_PROXY   = $proxyUrl
-    NO_PROXY    = 'localhost,127.0.0.1,::1,127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,hzboiler.com,.hzboiler.com'
-}
-
-if ($Disable) {
-    # Use the supported WinINet API rather than editing connection binary data.
-    if (-not ('PublicRepo.LanProxySettings' -as [type])) {
-        Add-Type -TypeDefinition @'
+    # WinINet controls all three LAN proxy modes, including automatic detection.
+    Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -173,33 +159,104 @@ namespace PublicRepo
     }
 }
 '@
+}
+
+function Set-ManualProxy {
+    param(
+        [string]$RegistryPath,
+        [string]$Address,
+        [string]$BypassList
+    )
+
+    New-ItemProperty -Path $RegistryPath -Name ProxyServer -PropertyType String -Value $Address -Force | Out-Null
+    New-ItemProperty -Path $RegistryPath -Name ProxyOverride -PropertyType String -Value $BypassList -Force | Out-Null
+    New-ItemProperty -Path $RegistryPath -Name ProxyEnable -PropertyType DWord -Value 1 -Force | Out-Null
+}
+
+function Set-ProxyEnvironment {
+    param(
+        [string]$ProxyUrl,
+        [string]$NoProxy,
+        [switch]$Disable
+    )
+
+    $variables = [ordered]@{
+        HTTP_PROXY  = $ProxyUrl
+        HTTPS_PROXY = $ProxyUrl
+        ALL_PROXY   = $ProxyUrl
+        NO_PROXY    = $NoProxy
     }
+
+    foreach ($name in @($variables.Keys)) {
+        if ($Disable) {
+            $variables[$name] = $null
+        }
+
+        foreach ($scope in @('User', 'Process')) {
+            if ($Disable) {
+                # A true .NET null deletes the variable on PowerShell 7.5+ too.
+                [Environment]::SetEnvironmentVariable($name, [NullString]::Value, $scope)
+            }
+            else {
+                [Environment]::SetEnvironmentVariable($name, $variables[$name], $scope)
+            }
+        }
+    }
+
+    [pscustomobject]$variables
+}
+
+# Keep Windows bypass rules separate from the NO_PROXY format used by CLI tools.
+$registryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+$manualBypass = @(
+    'localhost'
+    '127.*'
+    '10.*'
+    '172.16.*'
+    '172.17.*'
+    '172.18.*'
+    '172.19.*'
+    '172.20.*'
+    '172.21.*'
+    '172.22.*'
+    '172.23.*'
+    '172.24.*'
+    '172.25.*'
+    '172.26.*'
+    '172.27.*'
+    '172.28.*'
+    '172.29.*'
+    '172.30.*'
+    '172.31.*'
+    '192.168.*'
+    'hzboiler.com'
+    '<local>'
+) -join ';'
+
+$noProxy = @(
+    'localhost'
+    '127.0.0.1'
+    '::1'
+    '127.0.0.0/8'
+    '10.0.0.0/8'
+    '172.16.0.0/12'
+    '192.168.0.0/16'
+    'hzboiler.com'
+    '.hzboiler.com'
+) -join ','
+
+if ($Disable) {
+    Initialize-LanProxyApi
     [PublicRepo.LanProxySettings]::Disable()
-    # Mark the variables for removal in the loop below.
-    foreach ($name in @($proxyEnvironment.Keys)) {
-        $proxyEnvironment[$name] = $null
-    }
 }
 else {
-    New-ItemProperty -Path $proxyKey -Name ProxyServer -PropertyType String -Value $proxyAddress -Force | Out-Null
-    New-ItemProperty -Path $proxyKey -Name ProxyOverride -PropertyType String -Value $bypass -Force | Out-Null
-    New-ItemProperty -Path $proxyKey -Name ProxyEnable -PropertyType DWord -Value 1 -Force | Out-Null
+    Set-ManualProxy -RegistryPath $registryPath -Address $ProxyAddress -BypassList $manualBypass
 }
 
-foreach ($entry in $proxyEnvironment.GetEnumerator()) {
-    if ($null -eq $entry.Value) {
-        # Pass a true .NET null; PowerShell 7.5+ can convert $null to an empty string.
-        [Environment]::SetEnvironmentVariable($entry.Key, [NullString]::Value, 'User')
-        [Environment]::SetEnvironmentVariable($entry.Key, [NullString]::Value, 'Process')
-    }
-    else {
-        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'User')
-        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
-    }
-}
+$environmentState = Set-ProxyEnvironment -ProxyUrl ('http://' + $ProxyAddress) -NoProxy $noProxy -Disable:$Disable
 
-Get-ItemProperty -Path $proxyKey |
+Get-ItemProperty -Path $registryPath |
     Select-Object ProxyEnable, ProxyServer, ProxyOverride, AutoConfigURL
 
-[pscustomobject]$proxyEnvironment
+$environmentState
 
