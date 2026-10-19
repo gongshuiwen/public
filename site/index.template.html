@@ -20,6 +20,7 @@
     a { color: #245bd0; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .download { font-size: 14px; white-space: nowrap; }
+    .file-actions { display: flex; gap: 16px; white-space: nowrap; font-size: 14px; }
     footer { color: #64748b; font-size: 14px; margin-top: 28px; }
     @media (max-width: 540px) { main { margin-top: 48px; padding: 0 16px; } th, td { padding: 16px 10px; } }
     @media (prefers-color-scheme: dark) { :root { color: #e2e8f0; background: #10151e; } table { background: #171f2b; } th, td { border-color: #2b3545; } a { color: #8ab4ff; } .intro, footer, .eyebrow, th, td:nth-child(2) { color: #a3afc2; } }
@@ -29,7 +30,7 @@
   <main>
     <div class="eyebrow">GONGSHUIWEN / PUBLIC</div>
     <h1>公开文件</h1>
-    <p class="intro">脚本与工具文件，点击文件名访问，或直接下载到本地。</p>
+    <p class="intro">脚本与工具文件，点击文件名在线预览，也可以直接下载到本地。</p>
     <table>
       <thead><tr><th scope="col">文件</th><th scope="col">大小</th><th scope="col">操作</th></tr></thead>
       <tbody>{{FILES}}</tbody>
