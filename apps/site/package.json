@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "cf build",
-    "dev": "cf dev",
+    "build": "node scripts/build-content.mjs && cf build",
+    "dev": "node scripts/build-content.mjs && cf dev",
     "deploy": "cf deploy --prebuilt --mode production"
   },
   "devDependencies": {
