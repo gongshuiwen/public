@@ -1,6 +1,6 @@
 # 个人站点
 
-独立部署至 `gongshuiwen.com` 的静态技术主页，不包含个人身份资料、邮箱或联系方式。
+独立部署至 `gongshuiwen.com` 的静态技术主页，仅公开联系邮箱 `gongshuiwen@gmail.com`，不展示其他个人身份资料或联系方式。
 
 ## 本地运行
 
