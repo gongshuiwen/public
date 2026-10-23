@@ -17,11 +17,11 @@ const metadata = (source) => {
 };
 const inline = (s) => escape(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g,(_,label,url)=>'<a rel="noopener noreferrer" href="'+url+'">'+label+"</a>");
 function render(md) {
-  const out=[];let code=[];let lang="";
-  const flush=()=>{if(code.length){out.push('<pre><code class="language-'+escape(lang)+'">'+escape(code.join("\n"))+'</code></pre>');code=[];lang="";}};
+  const out=[];let code=[];let lang="";let inFence=false;
+  const flush=()=>{if(inFence){out.push('<pre><code class="language-'+escape(lang)+'">'+escape(code.join("\n"))+'</code></pre>');code=[];lang="";inFence=false;}};
   for(const line of md.split(/\r?\n/)){
-    if(line.startsWith("```")){if(lang || code.length)flush();else lang=line.slice(3).trim() || "text";continue;}
-    if(lang){code.push(line);continue;}
+    if(line.startsWith("```")){if(inFence)flush();else {inFence=true;lang=line.slice(3).trim() || "text";}continue;}
+    if(inFence){code.push(line);continue;}
     if(!line.trim())continue;
     const h=line.match(/^(#{1,3})\s+(.+)$/);
     if(h){out.push('<h'+h[1].length+'>'+inline(h[2])+'</h'+h[1].length+'>');continue;}
