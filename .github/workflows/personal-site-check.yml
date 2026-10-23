@@ -1,0 +1,29 @@
+name: Personal site checks
+on:
+  pull_request:
+    paths:
+      - "apps/site/**"
+      - ".github/workflows/personal-site-check.yml"
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - run: node scripts/build-content.mjs
+      - name: Verify generated pages
+        run: |
+          test -s public/projects/index.html
+          test -s public/posts/index.html
+          test -s public/projects/public-resources/index.html
+          test -s public/posts/site-architecture/index.html
+          test -s public/sitemap.xml
+          grep -q 'gongshuiwen@gmail.com' public/posts/index.html
+      - run: npm run build
