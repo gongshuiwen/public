@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.cf/
+.wrangler/
+public/projects/
+public/posts/
